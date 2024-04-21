@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -22,13 +23,24 @@ func NewUserRepository(db *MongoDB) ports.UserRepository {
 	}
 }
 
-func (r *UserRepository) Save(ctx context.Context, user domain.User) error {
-	_, err := r.db.InsertOne(ctx, user)
+func (r *UserRepository) Save(ctx context.Context, user domain.User) (domain.User, error) {
+	result, err := r.db.InsertOne(ctx, user)
 	if err != nil {
-		return errors.Wrap(err, "failed to save user")
+		return domain.User{}, errors.Wrap(err, "failed to save user")
 	}
 
-	return nil
+	oid, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return domain.User{}, errors.Errorf("failed to convert inserted id to ObjectID")
+	}
+
+	var savedUser domain.User
+	err = r.db.FindOne(ctx, bson.M{"_id": oid}).Decode(&savedUser)
+	if err != nil {
+		return domain.User{}, errors.Wrap(err, "failed to fetch saved user")
+	}
+
+	return savedUser, nil
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id string) (domain.User, error) {

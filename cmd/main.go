@@ -26,6 +26,8 @@ func main() {
 		log.Fatal("failed to load config", zap.Error(err))
 	}
 
+	log.Infof("config: %+v", cfg)
+
 	mongoDB, err := mongodb.NewMongoDB(ctx, cfg.MongoDBURI, cfg.MongoDBName)
 	if err != nil {
 		log.Fatal("failed to connect to MongoDB", zap.Error(err))
@@ -33,8 +35,9 @@ func main() {
 
 	userRepository := mongodb.NewUserRepository(mongoDB)
 	deviceRepository := mongodb.NewDeviceRepository(mongoDB)
+	readingsRepository := mongodb.NewReadingRepository(mongoDB)
 
-	mainAPI := api.NewAPI(userRepository, deviceRepository)
+	mainAPI := api.NewAPI(userRepository, deviceRepository, readingsRepository)
 
 	// Start server with context-aware logic
 	server := &http.Server{
@@ -71,6 +74,8 @@ func main() {
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+
+	log.Info("server running on port", cfg.ServerPort)
 
 	// Wait for server context to be stopped
 	<-ctx.Done()

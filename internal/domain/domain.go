@@ -1,32 +1,46 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 // User represents a person in the system.
 type User struct {
-	ID          string    `bson:"_id"`
-	FirstName   string    `bson:"first_name"`
-	LastName    string    `bson:"last_name"`
-	DateOfBirth time.Time `bson:"date_of_birth"`
-	Email       string    `bson:"email"`
-	PhoneNumber string    `bson:"phone_number"`
-	Devices     []Device  `bson:"devices"` // Embedding devices for simplicity, might reference by IDs in a real app.
+	ID          primitive.ObjectID `bson:"_id,omitempty"`
+	FirstName   string             `bson:"firstName"`
+	LastName    string             `bson:"lastName"`
+	DateOfBirth time.Time          `bson:"dateOfBirth"`
+	Email       string             `bson:"email"`
+	PhoneNumber string             `bson:"phoneNumber"`
+	Devices     []Device           `bson:"devices"` // Embedding devices for simplicity, might reference by IDs in a real app.
 }
 
 // Device represents a glucose measuring device used by a user.
 type Device struct {
-	ID           string `bson:"_id"`
-	Manufacturer string `bson:"manufacturer"`
-	Model        string `bson:"model"`
-	SerialNumber string `bson:"serial_number"`
-	Type         string `bson:"type"` // Could be "BG" for blood glucose reader or "CGM" for continuous glucose monitor.
+	ID           primitive.ObjectID `bson:"_id,omitempty"`
+	UserID       primitive.ObjectID `bson:"userId"`
+	Manufacturer string             `bson:"manufacturer"`
+	Model        string             `bson:"model"`
+	SerialNumber string             `bson:"serialNumber"`
+	Type         string             `bson:"type"` // Could be "BG" for blood glucose reader or "CGM" for continuous glucose monitor.
 }
 
 // Reading represents a glucose level reading taken from a device.
+type ReadingEntry struct {
+	Time  time.Time `bson:"time"`
+	Value int       `bson:"value"`
+}
+
 type Reading struct {
-	ID           string    `bson:"_id"`
-	DeviceID     string    `bson:"device_id"`
-	UserID       string    `bson:"user_id"`
-	Timestamp    time.Time `bson:"timestamp"`
-	GlucoseValue int       `bson:"glucose_value"`
+	ID            primitive.ObjectID `bson:"_id,omitempty"`
+	UserID        primitive.ObjectID `bson:"userId"`
+	Day           time.Time          `bson:"day"`
+	Readings      []ReadingEntry     `bson:"readings"`
+	MinValue      int                `bson:"minValue"`
+	MaxValue      int                `bson:"maxValue"`
+	AvgValue      float64            `bson:"avgValue"`
+	SumValues     int                `bson:"sumValues"`
+	CountReadings int                `bson:"countReadings"`
 }

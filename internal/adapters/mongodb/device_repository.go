@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -21,13 +22,24 @@ func NewDeviceRepository(db *MongoDB) *DeviceRepository {
 	}
 }
 
-func (r *DeviceRepository) Save(ctx context.Context, device domain.Device) error {
-	_, err := r.collection.InsertOne(ctx, device)
+func (r *DeviceRepository) Save(ctx context.Context, device domain.Device) (domain.Device, error) {
+	result, err := r.collection.InsertOne(ctx, device)
 	if err != nil {
-		return errors.Wrap(err, "failed to save device")
+		return domain.Device{}, errors.Wrap(err, "failed to save device")
 	}
 
-	return nil
+	oid, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return domain.Device{}, errors.Errorf("failed to convert inserted id to ObjectID")
+	}
+
+	var savedDevice domain.Device
+	err = r.collection.FindOne(ctx, bson.M{"_id": oid}).Decode(&savedDevice)
+	if err != nil {
+		return domain.Device{}, errors.Wrap(err, "failed to fetch saved device")
+	}
+
+	return savedDevice, nil
 }
 
 func (r *DeviceRepository) FindByID(ctx context.Context, id string) (domain.Device, error) {
