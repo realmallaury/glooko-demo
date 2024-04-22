@@ -14,7 +14,7 @@ type User struct {
 	DateOfBirth time.Time          `bson:"dateOfBirth"`
 	Email       string             `bson:"email"`
 	PhoneNumber string             `bson:"phoneNumber"`
-	Devices     []Device           `bson:"devices"` // Embedding devices for simplicity, might reference by IDs in a real app.
+	Devices     []Device           `bson:"devices"`
 }
 
 // Device represents a glucose measuring device used by a user.
@@ -44,4 +44,16 @@ type Reading struct {
 	AvgValue      float64            `bson:"avgValue"`
 	SumValues     int                `bson:"sumValues"`
 	CountReadings int                `bson:"countReadings"`
+}
+
+// DeviceCount represents the count of readings for a specific device on a given day.
+type DeviceCount struct {
+	DeviceID string `json:"deviceId"` // Device identifier
+	Count    int    `json:"count"`    // Number of readings from this device
+}
+
+// DayDeviceCounts aggregates the readings count for multiple devices on a specific day.
+type DayDeviceCounts struct {
+	Day     time.Time     `json:"day"`     // The day for which readings are counted
+	Devices []DeviceCount `json:"devices"` // List of device counts for the day
 }

@@ -78,7 +78,7 @@ func main() {
 			for day := 0; day < daysInPast; day++ {
 				date := startDate.AddDate(0, 0, day)
 				for j := 0; j < 24*12; j++ { // Generate readings every 5 minutes
-					err = readingRepo.AddReadingAndUpdateStats(ctx, d.ID, u.ID, rand.Intn(1024), date.Add(5*time.Minute*time.Duration(j)))
+					err = readingRepo.AddReadingAndUpdateStats(ctx, d.ID.Hex(), u.ID.Hex(), rand.Intn(1024), date.Add(5*time.Minute*time.Duration(j)))
 					if err != nil {
 						log.Fatal("Failed to add reading", zap.Error(err))
 					}

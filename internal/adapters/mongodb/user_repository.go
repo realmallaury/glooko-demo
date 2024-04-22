@@ -42,13 +42,3 @@ func (r *UserRepository) Save(ctx context.Context, user domain.User) (domain.Use
 
 	return savedUser, nil
 }
-
-func (r *UserRepository) FindByID(ctx context.Context, id string) (domain.User, error) {
-	var user domain.User
-	err := r.db.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	if err != nil {
-		return domain.User{}, errors.Wrap(err, "failed to find user")
-	}
-
-	return user, err
-}

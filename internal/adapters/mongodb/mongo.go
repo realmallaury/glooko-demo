@@ -58,12 +58,11 @@ func SetUpCollections(ctx context.Context, db *mongo.Database) error {
 	deviceValidation := bson.M{
 		"$jsonSchema": bson.M{
 			"bsonType": "object",
-			"required": []string{"manufacturer", "model", "serialNumber", "type", "userId"},
+			"required": []string{"manufacturer", "model", "serialNumber", "userId"},
 			"properties": bson.M{
 				"manufacturer": bson.M{"bsonType": "string"},
 				"model":        bson.M{"bsonType": "string"},
 				"serialNumber": bson.M{"bsonType": "string"},
-				"type":         bson.M{"bsonType": "string"},
 				"userId":       bson.M{"bsonType": "objectId"},
 			},
 		},

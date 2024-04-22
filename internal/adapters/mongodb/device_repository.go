@@ -41,13 +41,3 @@ func (r *DeviceRepository) Save(ctx context.Context, device domain.Device) (doma
 
 	return savedDevice, nil
 }
-
-func (r *DeviceRepository) FindByID(ctx context.Context, id string) (domain.Device, error) {
-	var device domain.Device
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&device)
-	if err != nil {
-		return domain.Device{}, errors.Wrap(err, "failed to find device")
-	}
-
-	return device, err
-}

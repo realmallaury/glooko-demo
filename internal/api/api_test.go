@@ -185,3 +185,66 @@ func TestGetUserOverview_MultipleDevices(t *testing.T) {
 	assert.Equal(t, 115, response.Overview[0].Metrics.MaxValue)
 	assert.Equal(t, 107.5, response.Overview[0].Metrics.AvgValue)
 }
+
+func TestGetDevicesOverview(t *testing.T) {
+	apiInstance := setupAPI()
+	readingsRepo := apiInstance.readingsRepo.(*mocks.ReadingRepository)
+
+	userID := "1234567890abcdef12345678"
+
+	testCases := []struct {
+		name        string
+		userID      string
+		days        int
+		setupMock   func()
+		expectCode  int
+		expectLen   int
+		expectError bool
+	}{
+		{
+			name:   "Valid Request",
+			userID: userID,
+			days:   30,
+			setupMock: func() {
+				start := time.Now().AddDate(0, 0, -30)
+				deviceOverviews := []domain.DayDeviceCounts{
+					{
+						Day: start,
+						Devices: []domain.DeviceCount{
+							{DeviceID: "device1", Count: 10},
+							{DeviceID: "device2", Count: 15},
+						},
+					},
+				}
+				readingsRepo.On("FetchDevicesOverview", mock.Anything, userID, 30).Return(deviceOverviews, nil)
+			},
+			expectCode:  http.StatusOK,
+			expectLen:   1,
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupMock()
+
+			url := fmt.Sprintf("/users/%s/devices-overview", tc.userID)
+			req, err := http.NewRequest("GET", url, nil)
+			assert.NoError(t, err)
+
+			w := httptest.NewRecorder()
+			r := chi.NewRouter()
+			r.Mount("/", apiInstance.Routes())
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectCode, w.Code)
+
+			if !tc.expectError {
+				var response []DayDeviceCounts
+				err = json.NewDecoder(w.Body).Decode(&response)
+				assert.NoError(t, err)
+				assert.Len(t, response, tc.expectLen)
+			}
+		})
+	}
+}

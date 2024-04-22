@@ -8,8 +8,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	primitive "go.mongodb.org/mongo-driver/bson/primitive"
-
 	time "time"
 )
 
@@ -19,7 +17,7 @@ type ReadingRepository struct {
 }
 
 // AddReadingAndUpdateStats provides a mock function with given fields: ctx, deviceID, userID, value, timestamp
-func (_m *ReadingRepository) AddReadingAndUpdateStats(ctx context.Context, deviceID primitive.ObjectID, userID primitive.ObjectID, value int, timestamp time.Time) error {
+func (_m *ReadingRepository) AddReadingAndUpdateStats(ctx context.Context, deviceID string, userID string, value int, timestamp time.Time) error {
 	ret := _m.Called(ctx, deviceID, userID, value, timestamp)
 
 	if len(ret) == 0 {
@@ -27,13 +25,43 @@ func (_m *ReadingRepository) AddReadingAndUpdateStats(ctx context.Context, devic
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, primitive.ObjectID, primitive.ObjectID, int, time.Time) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int, time.Time) error); ok {
 		r0 = rf(ctx, deviceID, userID, value, timestamp)
 	} else {
 		r0 = ret.Error(0)
 	}
 
 	return r0
+}
+
+// FetchDevicesOverview provides a mock function with given fields: ctx, userID, days
+func (_m *ReadingRepository) FetchDevicesOverview(ctx context.Context, userID string, days int) ([]domain.DayDeviceCounts, error) {
+	ret := _m.Called(ctx, userID, days)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchDevicesOverview")
+	}
+
+	var r0 []domain.DayDeviceCounts
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]domain.DayDeviceCounts, error)); ok {
+		return rf(ctx, userID, days)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) []domain.DayDeviceCounts); ok {
+		r0 = rf(ctx, userID, days)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.DayDeviceCounts)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, userID, days)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FetchReadings provides a mock function with given fields: ctx, userID, startDate, endDate

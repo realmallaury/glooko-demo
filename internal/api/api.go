@@ -34,25 +34,23 @@ func NewAPI(log *zap.SugaredLogger, userRepo ports.UserRepository, deviceRepo po
 func (api *API) Routes() *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(api.LoggingMiddleware)
+
 	// home endpoint
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Glooko demo API"))
+		w.WriteHeader(http.StatusOK)
+		respondWithJSON(w, "Glooko API")
 	})
 
 	// User routes
 	r.Route("/users", func(r chi.Router) {
 		r.Get("/{id}/overview", api.GetUserOverview)
-	})
-
-	// Device routes
-	r.Route("/devices", func(r chi.Router) {
-		r.Get("/{id}", api.GetDevice)
+		r.Get("/{id}/devices-overview", api.GetDevicesOverview)
 	})
 
 	return r
 }
 
-// User handlers
 type UserOverviewParams struct {
 	ID    string `validate:"required"`
 	Start string `validate:"omitempty,datetime=2006-01-02"`
@@ -83,6 +81,18 @@ type DailyReadings struct {
 // DailyReadingsResponse holds the response data for the user overview.
 type UserOverviewResponse struct {
 	Overview []DailyReadings `json:"overview"`
+}
+
+// DeviceCount represents the count of readings for a specific device on a given day.
+type DeviceCount struct {
+	DeviceID string `json:"deviceId"`
+	Count    int    `json:"count"`
+}
+
+// DayDeviceCounts aggregates the readings count for multiple devices on a specific day.
+type DayDeviceCounts struct {
+	Day     time.Time     `json:"day"`
+	Devices []DeviceCount `json:"devices"`
 }
 
 func (api *API) GetUserOverview(w http.ResponseWriter, r *http.Request) {
@@ -122,17 +132,46 @@ func (api *API) GetUserOverview(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Device handlers
-func (api *API) GetDevice(w http.ResponseWriter, r *http.Request) {
+func (api *API) GetDevicesOverview(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "id")
 	ctx := r.Context()
-	id := chi.URLParam(r, "id")
 
-	device, err := api.deviceRepo.FindByID(ctx, id)
+	err := api.validate.Var(userID, "required")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		api.log.Errorf("validation error: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(device)
+
+	results, err := api.readingsRepo.FetchDevicesOverview(ctx, userID, 30) // Last 30 days
+	if err != nil {
+		api.log.Errorf("Failed to fetch device overview: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Map domain results to response struct
+	response := make([]DayDeviceCounts, len(results))
+	for i, dayCounts := range results {
+		deviceCounts := make([]DeviceCount, len(dayCounts.Devices))
+		for j, device := range dayCounts.Devices {
+			deviceCounts[j] = DeviceCount{
+				DeviceID: device.DeviceID,
+				Count:    device.Count,
+			}
+		}
+
+		// sort devices by id
+		sort.Slice(deviceCounts, func(i, j int) bool {
+			return deviceCounts[i].DeviceID < deviceCounts[j].DeviceID
+		})
+
+		response[i] = DayDeviceCounts{
+			Day:     dayCounts.Day,
+			Devices: deviceCounts,
+		}
+	}
+	respondWithJSON(w, response)
 }
 
 func respondWithJSON(w http.ResponseWriter, data interface{}) {
@@ -246,4 +285,51 @@ func average(values []int) float64 {
 		total += v
 	}
 	return float64(total) / float64(len(values))
+}
+
+func (api *API) LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ww := NewWrapResponseWriter(w, r.ProtoMajor)
+
+		defer func() {
+			api.log.Infow("request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", ww.Status(),
+				"bytesWritten", ww.BytesWritten(),
+			)
+		}()
+
+		next.ServeHTTP(ww, r)
+	})
+}
+
+type wrapResponseWriter struct {
+	http.ResponseWriter
+	status       int
+	bytesWritten int
+}
+
+func NewWrapResponseWriter(w http.ResponseWriter, protoMajor int) *wrapResponseWriter {
+	// Default the status code to 200
+	return &wrapResponseWriter{ResponseWriter: w, status: http.StatusOK}
+}
+
+func (wr *wrapResponseWriter) WriteHeader(code int) {
+	wr.status = code
+	wr.ResponseWriter.WriteHeader(code)
+}
+
+func (wr *wrapResponseWriter) Write(b []byte) (int, error) {
+	size, err := wr.ResponseWriter.Write(b)
+	wr.bytesWritten += size
+	return size, err
+}
+
+func (wr *wrapResponseWriter) Status() int {
+	return wr.status
+}
+
+func (wr *wrapResponseWriter) BytesWritten() int {
+	return wr.bytesWritten
 }
