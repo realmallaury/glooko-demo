@@ -111,16 +111,27 @@ func SetUpCollections(ctx context.Context, db *mongo.Database) error {
 		return errors.Wrap(err, "failed to create collection")
 	}
 
-	readingsIndex := mongo.IndexModel{
+	readingsIndexFetchReadings := mongo.IndexModel{
 		Keys: bson.D{
-			{Key: "deviceId", Value: 1},
+			{Key: "userId", Value: 1},
 			{Key: "day", Value: 1},
-			{Key: "readings.time", Value: 1},
 		},
 	}
-	_, err = db.Collection("readings").Indexes().CreateOne(ctx, readingsIndex)
+	_, err = db.Collection("readings").Indexes().CreateOne(ctx, readingsIndexFetchReadings)
 	if err != nil {
-		return errors.Wrap(err, "failed to create index")
+		return errors.Wrap(err, "failed to create index for FetchReadings")
+	}
+
+	readingsIndexFetchDevicesOverview := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "userId", Value: 1},
+			{Key: "day", Value: 1},
+			{Key: "deviceId", Value: 1},
+		},
+	}
+	_, err = db.Collection("readings").Indexes().CreateOne(ctx, readingsIndexFetchDevicesOverview)
+	if err != nil {
+		return errors.Wrap(err, "failed to create index for FetchDevicesOverview")
 	}
 
 	return nil
