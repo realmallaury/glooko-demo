@@ -10,17 +10,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"go.uber.org/zap"
 )
 
 type API struct {
+	log          *zap.SugaredLogger
 	userRepo     ports.UserRepository
 	deviceRepo   ports.DeviceRepository
 	readingsRepo ports.ReadingRepository
 	validate     *validator.Validate
 }
 
-func NewAPI(userRepo ports.UserRepository, deviceRepo ports.DeviceRepository, readingsRepo ports.ReadingRepository) *API {
+func NewAPI(log *zap.SugaredLogger, userRepo ports.UserRepository, deviceRepo ports.DeviceRepository, readingsRepo ports.ReadingRepository) *API {
 	return &API{
+		log:          log,
 		userRepo:     userRepo,
 		deviceRepo:   deviceRepo,
 		readingsRepo: readingsRepo,
@@ -53,7 +56,7 @@ func (api *API) Routes() *chi.Mux {
 type UserOverviewParams struct {
 	ID    string `validate:"required"`
 	Start string `validate:"omitempty,datetime=2006-01-02"`
-	End   string `validate:"omitempty,datetime=2006-01-02,gtfield=Start"`
+	End   string `validate:"omitempty,datetime=2006-01-02"`
 }
 
 // Measure represents a single glucose measurment.
@@ -74,52 +77,49 @@ type DailyReadings struct {
 	UserID  string       `json:"userId"`
 	Day     string       `json:"day"`
 	Measure []Measure    `json:"readings"`
-	Metrics DailyMetrics `json:"metrics"` // Nested structure for metrics.
+	Metrics DailyMetrics `json:"metrics"`
 }
 
-// Response to send back to the client
+// DailyReadingsResponse holds the response data for the user overview.
 type UserOverviewResponse struct {
 	Overview []DailyReadings `json:"overview"`
 }
 
 func (api *API) GetUserOverview(w http.ResponseWriter, r *http.Request) {
+	log := api.log.With("method", "GetUserOverview")
+
 	params := UserOverviewParams{
 		ID:    chi.URLParam(r, "id"),
 		Start: r.URL.Query().Get("start"),
 		End:   r.URL.Query().Get("end"),
 	}
 
-	// Validate query parameters
 	err := api.validate.Struct(params)
 	if err != nil {
+		log.Errorf("validation error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Parse start and end dates, or set defaults
 	start, end, err := parseDates(params.Start, params.End)
 	if err != nil {
+		log.Errorf("invalid date range: %v", err)
 		http.Error(w, "Invalid date range: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Fetch readings from the database
 	ctx := r.Context()
 	readings, err := api.readingsRepo.FetchReadings(ctx, params.ID, start, end)
 	if err != nil {
+		log.Errorf("failed to fetch readings: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Aggregate data across devices
 	aggregatedData := aggregateReadings(readings)
-
-	// Prepare and send the response
-	response := UserOverviewResponse{
+	respondWithJSON(w, UserOverviewResponse{
 		Overview: aggregatedData,
-	}
-	respondWithJSON(w, response)
-
+	})
 }
 
 // Device handlers
@@ -178,13 +178,14 @@ func aggregateReadings(readings []domain.Reading) []DailyReadings {
 		if !exists {
 			daily = DailyReadings{
 				UserID:  reading.UserID.Hex(),
-				Day:     dayKey, // Storing the formatted string
+				Day:     dayKey,
 				Measure: []Measure{},
 				Metrics: DailyMetrics{},
 			}
 		}
 
 		for _, entry := range reading.Readings {
+			// Only append if the entry is in the date range
 			if entry.Time.Format("2006-01-02") != dayKey {
 				continue
 			}

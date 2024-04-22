@@ -37,21 +37,18 @@ func main() {
 	deviceRepository := mongodb.NewDeviceRepository(mongoDB)
 	readingsRepository := mongodb.NewReadingRepository(mongoDB)
 
-	mainAPI := api.NewAPI(userRepository, deviceRepository, readingsRepository)
+	mainAPI := api.NewAPI(log, userRepository, deviceRepository, readingsRepository)
 
-	// Start server with context-aware logic
 	server := &http.Server{
 		Addr:    cfg.ServerPort,
 		Handler: mainAPI.Routes(),
 	}
 
-	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
 		<-sig
 
-		// Shutdown signal with grace period of 30 seconds
 		shutdownCtx, _ := context.WithTimeout(ctx, 30*time.Second)
 
 		go func() {
@@ -61,7 +58,6 @@ func main() {
 			}
 		}()
 
-		// Trigger graceful shutdown
 		err := server.Shutdown(shutdownCtx)
 		if err != nil {
 			log.Fatal(err)
@@ -69,7 +65,6 @@ func main() {
 		cancel()
 	}()
 
-	// Run the server
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
@@ -77,6 +72,5 @@ func main() {
 
 	log.Info("server running on port", cfg.ServerPort)
 
-	// Wait for server context to be stopped
 	<-ctx.Done()
 }

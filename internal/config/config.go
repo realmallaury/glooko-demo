@@ -8,9 +8,9 @@ import (
 )
 
 type Config struct {
-	MongoDBURI  string `validate:"required"` // MongoDBURI must be a valid URL and is required.
-	MongoDBName string `validate:"required"` // MongoDBName is required.
-	ServerPort  string `validate:"required"` // ServerPort is required and must be numeric.
+	MongoDBURI  string `validate:"required"`
+	MongoDBName string `validate:"required"`
+	ServerPort  string `validate:"required"`
 }
 
 func LoadConfig() (*Config, error) {

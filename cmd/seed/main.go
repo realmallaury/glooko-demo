@@ -40,11 +40,11 @@ func main() {
 
 	users := make([]domain.User, 10)
 	devices := []domain.Device{
-		{Manufacturer: "Acme", Model: "X100", SerialNumber: "SN0001", Type: "BG"},
-		{Manufacturer: "Acme", Model: "X200", SerialNumber: "SN0002", Type: "CGM"},
-		{Manufacturer: "Beta", Model: "Y100", SerialNumber: "SN0003", Type: "BP"},
-		{Manufacturer: "Beta", Model: "Y200", SerialNumber: "SN0004", Type: "CGM"},
-		{Manufacturer: "Gamma", Model: "Z100", SerialNumber: "SN0005", Type: "ECG"},
+		{Manufacturer: "Acme", Model: "X100", SerialNumber: "SN0001"},
+		{Manufacturer: "Acme", Model: "X200", SerialNumber: "SN0002"},
+		{Manufacturer: "Beta", Model: "Y100", SerialNumber: "SN0003"},
+		{Manufacturer: "Beta", Model: "Y200", SerialNumber: "SN0004"},
+		{Manufacturer: "Gamma", Model: "Z100", SerialNumber: "SN0005"},
 	}
 
 	for i := range users {

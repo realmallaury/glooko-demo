@@ -24,7 +24,6 @@ type Device struct {
 	Manufacturer string             `bson:"manufacturer"`
 	Model        string             `bson:"model"`
 	SerialNumber string             `bson:"serialNumber"`
-	Type         string             `bson:"type"` // Could be "BG" for blood glucose reader or "CGM" for continuous glucose monitor.
 }
 
 // Reading represents a glucose level reading taken from a device.
@@ -33,9 +32,11 @@ type ReadingEntry struct {
 	Value int       `bson:"value"`
 }
 
+// Reading represents a glucose level readings for a day taken from a device.
 type Reading struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty"`
 	UserID        primitive.ObjectID `bson:"userId"`
+	DeviceID      primitive.ObjectID `bson:"deviceId"`
 	Day           time.Time          `bson:"day"`
 	Readings      []ReadingEntry     `bson:"readings"`
 	MinValue      int                `bson:"minValue"`

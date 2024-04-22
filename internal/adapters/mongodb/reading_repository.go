@@ -58,7 +58,6 @@ func (r *ReadingRepository) FetchReadings(ctx context.Context, userID string, st
 		return nil, fmt.Errorf("failed to parse userID: %v", err)
 	}
 
-	// Build the query
 	filter := bson.M{
 		"userId": userObjectID,
 		"day": bson.M{
@@ -67,17 +66,14 @@ func (r *ReadingRepository) FetchReadings(ctx context.Context, userID string, st
 		},
 	}
 
-	// Find options can be adjusted as needed, for example, sorting by day
 	findOptions := options.Find().SetSort(bson.D{{Key: "day", Value: 1}})
 
-	// Execute the query
 	cursor, err := r.collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find readings: %v", err)
 	}
 	defer cursor.Close(ctx)
 
-	// Unmarshal query results into a slice of Reading structs
 	var readings []domain.Reading
 	if err = cursor.All(ctx, &readings); err != nil {
 		return nil, fmt.Errorf("failed to parse readings: %v", err)
