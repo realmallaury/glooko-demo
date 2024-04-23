@@ -40,65 +40,79 @@ func main() {
 
 	userRepo := mongodb.NewUserRepository(mongoDB)
 	deviceRepo := mongodb.NewDeviceRepository(mongoDB)
+	readingRepo := mongodb.NewReadingRepository(mongoDB)
 
-	users := make([]domain.User, 10)
-	devices := []domain.Device{
-		{Manufacturer: "Acme", Model: "X100", SerialNumber: "SN0001"},
-		{Manufacturer: "Acme", Model: "X200", SerialNumber: "SN0002"},
-		{Manufacturer: "Beta", Model: "Y100", SerialNumber: "SN0003"},
-		{Manufacturer: "Beta", Model: "Y200", SerialNumber: "SN0004"},
-		{Manufacturer: "Gamma", Model: "Z100", SerialNumber: "SN0005"},
-	}
+	fmt.Println("days\tno\t\tFR-FD")
 
-	for i := range users {
-		users[i] = domain.User{
-			FirstName:   "FirstName" + strconv.Itoa(i),
-			LastName:    "LastName" + strconv.Itoa(i),
-			DateOfBirth: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
-			Email:       fmt.Sprintf("user%d@example.com", i),
-			PhoneNumber: fmt.Sprintf("555-010%d", i),
-			Devices:     []domain.Device{},
-		}
-		u, err := userRepo.Save(ctx, users[i])
-		if err != nil {
-			log.Fatal("failed to save user", zap.Error(err))
-		}
+	for daysInPast := 90; daysInPast <= 120; daysInPast++ {
+		noOfReadings := 0
+		var testUser primitive.ObjectID
+		readingsBatch := []domain.ReadingEntry{}
 
-		numDevices := rand.Intn(3) + 1
-		for j := 0; j < numDevices; j++ {
-			deviceIndex := rand.Intn(len(devices))
-			device := devices[deviceIndex]
+		for userCount := 1; userCount <= daysInPast*2; userCount++ {
+			user := domain.User{
+				FirstName:   "John" + strconv.Itoa(userCount),
+				LastName:    "Doe",
+				DateOfBirth: time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC),
+				Email:       fmt.Sprintf("john.doe%d@example.com", userCount),
+				PhoneNumber: fmt.Sprintf("555-01%02d", userCount),
+				Devices:     []domain.Device{},
+			}
+			u, err := userRepo.Save(ctx, user)
+			if err != nil {
+				log.Fatal("failed to save user", zap.Error(err))
+			}
 
-			device.UserID = u.ID
+			device := domain.Device{
+				Manufacturer: "Acme",
+				Model:        "X100",
+				SerialNumber: "SN00" + strconv.Itoa(userCount),
+				UserID:       u.ID,
+			}
 			d, err := deviceRepo.Save(ctx, device)
 			if err != nil {
 				log.Fatal("Failed to save device", zap.Error(err))
 			}
 
-			daysInPast := 5
-			startDate := time.Now().AddDate(0, 0, -daysInPast)
-			readingsBatch := []domain.ReadingEntry{}
+			testUser = u.ID // This will always be the last user added
 
+			startDate := time.Now().AddDate(0, 0, -daysInPast)
 			for day := 0; day < daysInPast; day++ {
 				date := startDate.AddDate(0, 0, day)
 				for j := 0; j < 24*12; j++ { // Generate readings every 5 minutes
-					reading := domain.ReadingEntry{
+					noOfReadings++
+					readingEntry := domain.ReadingEntry{
 						Time:  date.Add(5 * time.Minute * time.Duration(j)),
 						Value: rand.Intn(1024),
 					}
-					readingsBatch = append(readingsBatch, reading)
+					readingsBatch = append(readingsBatch, readingEntry)
 				}
-				// Process the batch for each day
-				err = addDayReadingsAndUpdateStats(ctx, mongoDB.Database, d.ID.Hex(), u.ID.Hex(), date, readingsBatch)
-				if err != nil {
-					log.Fatal("Failed to add day batch of readings", zap.Error(err))
-				}
-				readingsBatch = []domain.ReadingEntry{} // Clear the batch for the next day
 			}
-		}
-	}
 
-	log.Infof("Seeded %d users with devices and readings", len(users))
+			err = addDayReadingsAndUpdateStats(ctx, mongoDB.Database, d.ID.Hex(), u.ID.Hex(), startDate, readingsBatch)
+			if err != nil {
+				log.Fatal("Failed to add daily batch of readings", zap.Error(err))
+			}
+			readingsBatch = []domain.ReadingEntry{} // Reset for the next batch
+		}
+
+		// Measure performance with the current number of users and days
+		startTime := time.Now()
+		_, err = readingRepo.FetchReadings(ctx, testUser.Hex(), time.Now().AddDate(0, 0, -daysInPast), time.Now()) // Modify accordingly
+		readingsTime := time.Since(startTime)
+		if err != nil {
+			log.Fatal("Failed to fetch readings", zap.Error(err))
+		}
+
+		startTime = time.Now()
+		_, err = readingRepo.FetchDevicesOverview(ctx, testUser.Hex(), daysInPast) // Modify accordingly
+		devicesOverviewTime := time.Since(startTime)
+		if err != nil {
+			log.Fatal("Failed to fetch device overview", zap.Error(err))
+		}
+
+		fmt.Printf("%d\t%d\t\t%s-%s\n", daysInPast, noOfReadings, readingsTime, devicesOverviewTime)
+	}
 }
 
 func addDayReadingsAndUpdateStats(ctx context.Context, db *mongo.Database, deviceID, userID string, day time.Time, readings []domain.ReadingEntry) error {

@@ -17,6 +17,9 @@ test:
 seed:
 	@go run cmd/seed/main.go
 
+profile:
+	@go run cmd/profile/main.go
+
 deps:
 	go mod tidy
 	go get -u all
